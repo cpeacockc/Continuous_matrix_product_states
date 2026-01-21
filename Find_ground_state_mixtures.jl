@@ -1,10 +1,10 @@
 include("cMPS_Mixtures.jl")
 
 #First define system parameters
-D_2 = 4 # D/2 where D is bond dimension
-g = 1.0 # overall interaction strength
-Gbb = 1.0 # boson-boson interaction strength 
-Gbf = 0.0 # boson-fermion interaction strength
+D_2 = 2 # D/2 where D is bond dimension - this forces you to keep D even
+g = 2.0 # overall interaction strength, set to 2 in PhysRevResearch.4.L022034
+Gbb = 1.0 # boson-boson interaction strength - keep positive to prevent bosonic collapse
+Gbf = 1.0 # boson-fermion interaction strength
 Nf = 0.125 # Fermion density
 Ntot = 0.25 # Total density
 Nb = Ntot-Nf # Boson density
@@ -20,19 +20,20 @@ opt = Opt(:LN_PRAXIS,length(x0));
 min_objective!(opt, (x,grad) -> EMix(x,grad,D_2,Nf,Ntot,g,Gbb,Gbf))
 @time (minf,minx,ret) = NLopt.optimize(opt,x0)
 
-#Calculate densities and compare to chosen
-Densb = EMixSelect(minx,g,D_2,Gbb,Gbf,"Densb");Densf = EMixSelect(minx,g,D_2,Gbb,Gbf,"Densf");E = EMixSelect(minx,g,D_2,Gbb,Gbf,"H");
+
+#Recalculate density and energy (cannot trust output from optimization due to lagrange multiplier)
+Densb = EMixSelect(minx,D_2,g,Gbb,Gbf,"Densb");Densf = EMixSelect(minx,D_2,g,Gbb,Gbf,"Densf");E = EMixSelect(minx,D_2,g,Gbb,Gbf,"H");
 #Minimum energy:
-Emin = real.(E)
+Emin = rescaled_energy(E,(Densb+Densf))
 
 if isapprox(Densb,Nb,rtol=dens_tol) && isapprox(Densf,Nf,rtol=dens_tol)
-    println("Emin = $Emin (Densities within tolerance)")
+    println("Emin = $Emin")
 else
     error("Optimization failed (densities not within tolerance)")
 end
 
 #Now, find various energies of the ground state with EMixSelect
-Ekinb = real(EMixSelect(minx,g,D_2,Gbb,Gbf,"Ekinb"))
-Ekinf = real(EMixSelect(minx,g,D_2,Gbb,Gbf,"Ekinf"))
-Eintb = real(EMixSelect(minx,g,D_2,Gbb,Gbf,"Eintb"))
-Eintbf = real(EMixSelect(minx,g,D_2,Gbb,Gbf,"Eintbf"))
+Ekinb = EMixSelect(minx,D_2,g,Gbb,Gbf,"Ekinb")
+Ekinf = EMixSelect(minx,D_2,g,Gbb,Gbf,"Ekinf")
+Eintb = EMixSelect(minx,D_2,g,Gbb,Gbf,"Eintb")
+Eintbf = EMixSelect(minx,D_2,g,Gbb,Gbf,"Eintbf")
