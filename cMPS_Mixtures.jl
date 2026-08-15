@@ -52,12 +52,16 @@ function EMixSelect(x::Array,D_2::Int64,g::Real,Gbb::Real,Gbf::Real,flag::String
         kron(Rf,conj(Rf))
 
     #Now we construct the cMPS norm e^{TL} and iterate, squaring until converged at largest value
-    ExpT = exp(T) 
-    ExpTL = ExpT^2.0
-    epsilon = norm(ExpTL-ExpT,2)/1_000_000
+    #Trace-normalising each step holds the fixed point at tr=1: without it the doubling of L
+    #amplifies the numerically-nonzero leading eigenvalue and e^{TL} over/underflows.
+    #epsilon needs the floor because a large ||T|| converges in one exp, which would otherwise
+    #put a purely relative tolerance below roundoff and spin the loop forever.
+    ExpT = exp(T); ExpT /= tr(ExpT)
+    ExpTL = ExpT*ExpT; ExpTL /= tr(ExpTL)
+    epsilon = max(norm(ExpTL-ExpT,2)/1_000_000, 1e-12)
     while norm(ExpTL-ExpT,2) > epsilon
         ExpT = ExpTL
-        ExpTL = ExpT*ExpT
+        ExpTL = ExpT*ExpT; ExpTL /= tr(ExpTL)
     end
 
     #Define commutators for convenience
@@ -121,13 +125,12 @@ function EMix(x::Vector,grad::Vector,D_2::Int64,Nf::Float64,Ntot::Float64,g::Rea
         kron(Diagonal(ones(D)),conj(Q)) +
         kron(Rb,conj(Rb)) +
         kron(Rf,conj(Rf))
-    L = 2.0
-    ExpT = exp(T) 
-    ExpTL = ExpT^L
-    epsilon = norm(ExpTL-ExpT,2)/1_000_000
+    ExpT = exp(T); ExpT /= tr(ExpT)
+    ExpTL = ExpT*ExpT; ExpTL /= tr(ExpTL)
+    epsilon = max(norm(ExpTL-ExpT,2)/1_000_000, 1e-12)
     while norm(ExpTL-ExpT,2) > epsilon
         ExpT = ExpTL
-        ExpTL = ExpT*ExpT
+        ExpTL = ExpT*ExpT; ExpTL /= tr(ExpTL)
     end
     commQRb = (Q*Rb - Rb*Q)
     commQRf = (Q*Rf - Rf*Q)
@@ -165,13 +168,13 @@ function EBoseSelect(x::Vector,D::Real,g::Real,flag::String)
         kron(Diagonal(ones(D)),conj(Q)) +
         kron(R,conj(R))
     
-    #To construct norm, square until convergence
-    ExpT = exp(T)
-    ExpTL = ExpT^2
-    epsilon = norm(ExpTL-ExpT,1)/1_000_000
+    #To construct norm, square until convergence (trace-normalised, see EMixSelect)
+    ExpT = exp(T); ExpT /= tr(ExpT)
+    ExpTL = ExpT^2; ExpTL /= tr(ExpTL)
+    epsilon = max(norm(ExpTL-ExpT,1)/1_000_000, 1e-12)
     while norm(ExpTL-ExpT,1) > epsilon
         ExpT = ExpTL
-        ExpTL = ExpT^2
+        ExpTL = ExpT^2; ExpTL /= tr(ExpTL)
     end
 
     commQR = commutator(Q,R)
@@ -204,12 +207,12 @@ function EBose(x::Vector,grad::Vector,D::Real,g::Real,Nb::Real)
     T = kron(Q,Diagonal(ones(D))) +
         kron(Diagonal(ones(D)),conj(Q)) +
         kron(R,conj(R))
-    ExpT = exp(T) #try taylor expansion of exp
-    ExpTL = ExpT^2.
-    epsilon = norm(ExpTL-ExpT,1)/1_000_000
+    ExpT = exp(T); ExpT /= tr(ExpT)
+    ExpTL = ExpT^2; ExpTL /= tr(ExpTL)
+    epsilon = max(norm(ExpTL-ExpT,1)/1_000_000, 1e-12)
     while norm(ExpTL-ExpT,1) > epsilon
         ExpT = ExpTL
-        ExpTL = ExpT^2
+        ExpTL = ExpT^2; ExpTL /= tr(ExpTL)
     end
 
     commQR = commutator(Q,R)

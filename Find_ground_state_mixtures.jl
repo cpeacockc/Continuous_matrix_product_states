@@ -15,8 +15,10 @@ dens_tol = Ntot/100 # tolerance for difference in density after optimization
 #note: Lagrange multipliers are used to set densities in EMix(), currently set to CP_b = CP_f = 1e9
 
 using NLopt
-x0 = x_init(D_2) # initialize random cMPS ansatz which currently contains 4*(D_2^2)+(2D_2)^2+2*(D_2^2)+2 numbers
+x0 = x_init_mix(D_2) # initialize random cMPS ansatz which currently contains 4*(D_2^2)+(2D_2)^2+2*(D_2^2)+2 numbers
 opt = Opt(:LN_PRAXIS,length(x0));
+maxeval!(opt, 200_000) # PRAXIS needs a generous budget; too small a cap breaks variational monotonicity in D
+ftol_rel!(opt, 1e-13)
 min_objective!(opt, (x,grad) -> EMix(x,grad,D_2,Nf,Ntot,g,Gbb,Gbf))
 @time (minf,minx,ret) = NLopt.optimize(opt,x0)
 
@@ -26,7 +28,7 @@ Densb = EMixSelect(minx,D_2,g,Gbb,Gbf,"Densb");Densf = EMixSelect(minx,D_2,g,Gbb
 #Minimum energy:
 Emin = rescaled_energy(E,(Densb+Densf))
 
-if isapprox(Densb,Nb,rtol=dens_tol) && isapprox(Densf,Nf,rtol=dens_tol)
+if isapprox(Densb,Nb,atol=dens_tol) && isapprox(Densf,Nf,atol=dens_tol)
     println("Emin = $Emin")
 else
     error("Optimization failed (densities not within tolerance)")
